@@ -4,13 +4,16 @@ require 'discord.uuid'
 
 local struct = require 'discord.deps.struct'
 
+---@class WaitingActivity
+---@field activity Activity?
+---@field callback? fun(response: string?, err_name: string?, err_msg: string?)
 
 ---@class Discord
 ---@field client_id string
 ---@field logger Logger
 ---@field socket string # Just for debuging
 ---@field pipe uv_pipe_t?
----@field waiting_activity Activity?
+---@field waiting_activity WaitingActivity?
 ---@field tried_connection boolean
 local Discord = {
   client_id = '',
@@ -25,16 +28,17 @@ local Discord = {
 
 ---@param client_id string
 ---@param logger? Logger
-function Discord:setup(client_id, logger)
+---@param callback? fun(response: string?, err_name: string?, err_msg: string?)
+function Discord:setup(client_id, logger, callback)
   if logger then self.logger = logger end
   self.client_id = client_id
 
-  self:test_sockets(self.authorize)
+  self:test_sockets(function() self:authorize(callback) end)
   self.tried_connection = true
 end
 
 ---@private
----@param callback? fun(self: Discord)
+---@param callback? function
 function Discord:test_sockets(callback)
   local sockets = self.get_sockets()
   local pipe = assert(vim.loop.new_pipe(false))
@@ -82,18 +86,20 @@ end
 ---@param activity Activity?
 ---@param callback? fun(response: string?, err_name: string?, err_msg: string?)
 function Discord:set_activity(activity, callback)
-  local payload = {
-    cmd = 'SET_ACTIVITY',
-    nonce = Generate_uuid(),
-    args = {
-      activity = activity,
-      pid = vim.loop:os_getpid()
-    }
-  }
-
   if not self.pipe or not self.pipe:is_active() then
-    self.waiting_activity = activity
+    self.logger:log('Discord:set_activity', 'adding to wait')
+    self.waiting_activity = { activity = activity, callback = callback }
   else
+    local payload = {
+      cmd = 'SET_ACTIVITY',
+      nonce = Generate_uuid(),
+      args = {
+        activity = activity,
+        pid = vim.loop:os_getpid()
+      }
+    }
+
+    self.logger:log('Discord:set_activity', 'calling')
     self:call(1, payload, callback)
   end
 end
@@ -107,7 +113,10 @@ function Discord:authorize(callback)
   }
 
   self:call(0, payload, function(...)
-    if self.waiting_activity then self:set_activity(self.waiting_activity) end
+    if self.waiting_activity then
+      self:set_activity(self.waiting_activity.activity, self.waiting_activity.callback)
+    end
+
     if callback then callback(...) end
   end)
 end

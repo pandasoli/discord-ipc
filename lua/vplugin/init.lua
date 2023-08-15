@@ -11,15 +11,23 @@ local Discord = require 'deps.discord'
 local VPlugin = {}
 
 function VPlugin:setup()
-  Discord:setup('1059272441194623126', Logger)
+  self.logger = Logger
+
+  Discord:setup('1059272441194623126', Logger, function(_, err_name, err_msg)
+    if err_name then
+      Logger:log('VPlugin:setup Dicord:setup', err_name, err_msg)
+    end
+  end)
 
   Discord:set_activity({
     state = 'state',
     details = 'details',
 
+    -- cannot be empty
+    -- no problem if it has only the "end" key
     timestamps = {
       start = 1,
-      ['end'] = 2,
+      ['end'] = 1
     },
 
     assets = {
@@ -29,11 +37,15 @@ function VPlugin:setup()
       small_text = 'small_text'
     },
 
+    -- Cannot be empty
     buttons = {
       { label = 'Google', url = 'https://google.com' }
     }
-  })
+  }, function(...)
+    print('VPlugin:setup Discord:set_activity', ...)
+  end)
 
+  vim.api.nvim_create_user_command('PrintDiscordPipe', 'lua package.loaded.vplugin.print_pipe()', { nargs = 0 })
   vim.api.nvim_create_user_command('PrintDiscordLogs', 'lua package.loaded.vplugin.logger:print()', { nargs = 0 })
 
   vim.api.nvim_create_autocmd('ExitPre', {
@@ -42,6 +54,10 @@ function VPlugin:setup()
       Discord:disconnect()
     end
   })
+end
+
+function VPlugin.print_pipe()
+  print(Discord.pipe, Discord.socket)
 end
 
 return VPlugin
