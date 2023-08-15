@@ -41,18 +41,29 @@ end
 ---@param callback? function
 function Discord:test_sockets(callback)
   local sockets = self.get_sockets()
+  local sockets_len = #sockets
   local pipe = assert(vim.loop.new_pipe(false))
 
-  for _, socket in ipairs(sockets) do
+  local tried_connections = 0
+
+  for i, socket in ipairs(sockets) do
     if self.pipe then break end
 
+    self.logger:log('Discord:test_sockets', 'Trying connection with socket', tostring(i)..'/'..tostring(sockets_len))
     pipe:connect(socket, function(err)
       if err then
         pipe:close()
+        tried_connections = tried_connections + 1
+
+        if tried_connections == sockets_len then
+          self.logger:log('Discord:test_sockets', 'Could not connect to any socket ('..tostring(sockets_len)..')')
+        end
       else
         self.pipe = pipe
         self.socket = socket
         if callback then callback(self) end
+
+        self.logger:log('Discord:test_sockets', 'Successful connection with', socket)
       end
     end)
   end

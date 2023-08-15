@@ -37,9 +37,3 @@ function Discord:disconnect() end
 # Development
 
 I relied a lot on the script that the plugin [presence.nvim](https://github.com/andweeb/presence.nvim) uses.
-
-<br/>
-
-# TODO
-
-Add logs like: "Trying connection with socket 1/3" and when all the connections end show a log like: "Well done connection with <socket>" and "Could not connection to any socket".

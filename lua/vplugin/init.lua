@@ -41,8 +41,10 @@ function VPlugin:setup()
     buttons = {
       { label = 'Google', url = 'https://google.com' }
     }
-  }, function(...)
-    print('VPlugin:setup Discord:set_activity', ...)
+  }, function(_, err_name, err_msg)
+    if err_name then
+      print('VPlugin:setup Discord:set_activity', err_name, err_msg)
+    end
   end)
 
   vim.api.nvim_create_user_command('PrintDiscordPipe', 'lua package.loaded.vplugin.print_pipe()', { nargs = 0 })
