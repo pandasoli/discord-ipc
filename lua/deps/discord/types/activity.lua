@@ -11,5 +11,5 @@
 ---@class Activity
 ---@field state?   string
 ---@field details? string
----@field assets   ActivityAssets
+---@field assets?  ActivityAssets
 ---@field buttons? ActivityButton[]
