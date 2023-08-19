@@ -16,19 +16,14 @@ local struct = require 'discord.deps.struct'
 ---@field waiting_activity WaitingActivity?
 ---@field tried_connection boolean
 local Discord = {
-  client_id = '',
   logger = {
     log = function() end
-  },
-  socket = '',
-  pipe = nil,
-  waiting_activity = nil,
-  tried_connection = false
+  }
 }
 
 ---@param client_id string
 ---@param logger? Logger
----@param callback? fun(response: string?, err_name: string?, err_msg: string?)
+---@param callback? fun(response: (table|string)?, opcode: number?, err: string?)
 function Discord:setup(client_id, logger, callback)
   if logger then self.logger = logger end
   self.client_id = client_id
@@ -38,7 +33,7 @@ function Discord:setup(client_id, logger, callback)
 end
 
 ---@private
----@param callback? function
+---@param callback? fun(self: Discord)
 function Discord:test_sockets(callback)
   local sockets = self.get_sockets()
   local sockets_len = #sockets
@@ -72,7 +67,9 @@ end
 ---@private
 ---@return string[] sockets
 function Discord.get_sockets()
-  local f = assert(io.popen("ss -lx | grep -o '[^[:space:]]*discord[^[:space:]]*'", 'r'))
+  local cmd = "ss -lx | grep -o '[^[:space:]]*discord[^[:space:]]*'"
+
+  local f = assert(io.popen(cmd, 'r'))
   local d = assert(f:read('*a'))
   f:close()
 
@@ -95,7 +92,7 @@ function Discord:disconnect()
 end
 
 ---@param activity Activity?
----@param callback? fun(response: string?, err_name: string?, err_msg: string?)
+---@param callback? fun(response: (table|string)?, opcode: number?, err: string?)
 function Discord:set_activity(activity, callback)
   if not self.pipe or not self.pipe:is_active() then
     self.logger:log('Discord:set_activity', 'adding to wait')
@@ -116,7 +113,7 @@ function Discord:set_activity(activity, callback)
 end
 
 ---@private
----@param callback? fun(response: string?, err_name: string?, err_msg: string?)
+---@param callback? fun(response: (table|string)?, opcode: number?, err: string?)
 function Discord:authorize(callback)
   local payload = {
     client_id = self.client_id,
@@ -135,15 +132,21 @@ end
 ---@private
 ---@param opcode number
 ---@param payload table
----@param callback? fun(response: string?, err_name: string?, err_msg: string?)
+---@param callback? fun(response: (table|string)?, opcode: number?, err: string?)
 function Discord:call(opcode, payload, callback)
   callback = callback or function() end
 
   local function read_fn(read_err, chunk)
     if read_err then
-      callback(nil, 'read', read_err)
+      callback(nil, nil, 'reading: ' .. read_err)
     elseif chunk then
-      callback(chunk)
+      local msg = chunk:match('({.+)')
+      local opcode = struct.unpack('<ii', chunk)
+
+      DecodeJSON(msg, function(success, response)
+        opcode = tonumber(opcode) or opcode
+        callback(success and response or chunk, opcode)
+      end)
     end
   end
 
@@ -152,7 +155,7 @@ function Discord:call(opcode, payload, callback)
 
     self.pipe:write(msg, function(write_err)
       if write_err then
-        callback(nil, 'write', write_err)
+        callback(nil, nil, 'writing: ' .. write_err)
       else
         self.pipe:read_start(read_fn)
       end

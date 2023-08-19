@@ -13,10 +13,8 @@ local VPlugin = {}
 function VPlugin:setup()
   self.logger = Logger
 
-  Discord:setup('1059272441194623126', Logger, function(_, err_name, err_msg)
-    if err_name then
-      Logger:log('VPlugin:setup Dicord:setup', err_name, err_msg)
-    end
+  Discord:setup('1059272441194623126', Logger, function(response, opcode, err)
+    print('VPlugin:setup', response, opcode, err)
   end)
 
   Discord:set_activity({
@@ -41,10 +39,8 @@ function VPlugin:setup()
     buttons = {
       { label = 'Google', url = 'https://google.com' }
     }
-  }, function(_, err_name, err_msg)
-    if err_name then
-      print('VPlugin:setup Discord:set_activity', err_name, err_msg)
-    end
+  }, function(response, opcode, err)
+    print('VPlugin:set_activity', response, opcode, err)
   end)
 
   vim.api.nvim_create_user_command('PrintDiscordPipe', 'lua package.loaded.vplugin.print_pipe()', { nargs = 0 })
